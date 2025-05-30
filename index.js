@@ -1,10 +1,12 @@
 const TelegramBot = require('node-telegram-bot-api');
 const sdk = require('node-appwrite');
-require('dotenv').config();
+// require('dotenv').config();
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-    polling: true,
-});
+// const bot = new TelegramBot(process.env.BOT_TOKEN, {
+//     polling: true,
+// });
+
+const bot = new TelegramBot(process.env.BOT_TOKEN);
 
 const endpoint = process.env.APPWRITE_ENDPOINT;
 const projectId = process.env.APPWRITE_PROJECT_ID;
@@ -704,6 +706,16 @@ const sendReminder = async () => {
     }
 };
 
-setInterval(() => {
-    sendReminder();
-}, 60 * 60 * 1000);
+// setInterval(() => {
+//     sendReminder();
+// }, 60 * 60 * 1000);
+
+module.exports = async function (req, res) {
+    try {
+        await bot.processUpdate(req.body);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error processing update:', err);
+        res.json({ success: false, error: err.message });
+    }
+};
