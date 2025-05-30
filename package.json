@@ -10,9 +10,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "dotenv": "^16.5.0",
-    "node-appwrite": "^16.0.0",
     "node-telegram-bot-api": "^0.66.0",
-    "telegram-inline-calendar": "^1.10.0"
+    "node-appwrite": "^16.0.0",
+    "telegram-inline-calendar": "^1.10.0",
+    "dotenv": "^16.5.0"
   }
 }
