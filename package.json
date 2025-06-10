@@ -1,0 +1,25 @@
+{
+  "name": "ph_studio_bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kolya-makarenko/ph-studio-bot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kolya-makarenko/ph-studio-bot/issues"
+  },
+  "homepage": "https://github.com/kolya-makarenko/ph-studio-bot#readme",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "node-appwrite": "^17.0.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "telegram-inline-calendar": "^1.10.0"
+  }
+}
