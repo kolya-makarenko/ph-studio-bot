@@ -416,6 +416,12 @@ bot.on('text', async (msg) => {
 Дата: ${document.date},
 Час: ${document.time}`
                         );
+                    } else {
+                        sendOptions(
+                            chatId,
+                            'У вас немає записів. Хочете записатись на послугу?',
+                            [['Запис'], ['Головне меню']]
+                        );
                     }
                 });
                 setTimeout(() => {
