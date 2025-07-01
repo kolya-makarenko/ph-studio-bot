@@ -1,5 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const sdk = require('node-appwrite');
+const Calendar = require('telegram-inline-calendar');
 require('dotenv').config();
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
@@ -17,6 +18,7 @@ const disabledDatesCollectionId =
 const disabledTimesCollectionId =
     process.env.APPWRITE_BLOCKED_SLOTS_COLLECTION_ID;
 const blacklistCollectionId = process.env.APPWRITE_BLACKLIST_COLLECTION_ID;
+// const userStateCollectionId = process.env.APPWRITE_USERS_STATE_COLLECTION_ID;
 
 const client = new sdk.Client()
     .setEndpoint(endpoint)
@@ -214,7 +216,6 @@ const getStopDay = () => {
     return stopDay.toISOString().split('T')[0];
 };
 
-const Calendar = require('telegram-inline-calendar');
 const calendar = new Calendar(bot, {
     date_format: 'YYYY-MM-DD',
     start_week_day: 1,
@@ -366,6 +367,17 @@ bot.on('text', async (msg) => {
 Час: ${userState[chatId].selectedTime}
 
 Вам надійде повідомлення-нагадування за добу до призначеного часу.`,
+                                    [['Головне меню']]
+                                );
+                                sendOptionsAdmin(
+                                    932241756,
+                                    `Новий запис:
+                                    
+Ім'я: ${userState[chatId].name}
+Телеграм: ${userState[chatId].phone}
+Послуги: ${userState[chatId].selectedServices.join(', ')}
+Дата: ${userState[chatId].selectedDate}
+Час: ${userState[chatId].selectedTime}`,
                                     [['Головне меню']]
                                 );
                                 userState[chatId] = {
@@ -713,3 +725,226 @@ const sendReminder = async () => {
 setInterval(() => {
     sendReminder();
 }, 60 * 60 * 1000);
+
+// second bot =======================================
+
+const botAdmin = new TelegramBot(process.env.BOT_TOKEN_ADMIN, {
+    polling: true,
+});
+
+botAdmin.setMyCommands([
+    { command: '/main_menu', description: 'Головне меню' },
+    { command: '/appointments', description: 'Записи' },
+    { command: '/cancel', description: 'Скасувати запис' },
+    { command: '/disabled_dates', description: 'Заблоковані дати' },
+    { command: '/add_disabled_date', description: 'Додати заблоковану дату' },
+    { command: '/disabled_times', description: 'Заблокований час' },
+    { command: '/add_disabled_time', description: 'Додати заблокований час' },
+    { command: '/blacklist', description: 'Чорний список' },
+    { command: '/add_to_blacklist', description: 'Додати до чорного списку' },
+]);
+
+const sendOptionsAdmin = (chatId, messageText, options) => {
+    botAdmin.sendMessage(chatId, messageText, {
+        reply_markup: {
+            keyboard: options,
+            one_time_keyboard: true,
+            resize_keyboard: true,
+        },
+        parse_mode: 'HTML',
+    });
+};
+
+const calendarAdmin = new Calendar(botAdmin, {
+    date_format: 'YYYY-MM-DD',
+    start_week_day: 1,
+    start_date: getTomorrowDay(),
+    stop_date: getStopDay(),
+    language: 'uk',
+});
+
+botAdmin.on('text', async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+
+    if (text === '/start') {
+        sendOptionsAdmin(chatId, 'Привіт! Обери опцію:', [
+            ['Головне меню', 'Записи', 'Скасувати запис'],
+            ['Заблоковані дати', 'Додати заблоковану дату'],
+            ['Заблокований час', 'Додати заблокований час'],
+            ['Чорний список', 'Додати до чорного списку'],
+        ]);
+    } else if (text === '/main_menu' || text === 'Головне меню') {
+        sendOptionsAdmin(chatId, 'Головне меню:', [
+            ['Головне меню', 'Записи', 'Скасувати запис'],
+            ['Заблоковані дати', 'Додати заблоковану дату'],
+            ['Заблокований час', 'Додати заблокований час'],
+            ['Чорний список', 'Додати до чорного списку'],
+        ]);
+    } else if (text === '/appointments' || text === 'Записи') {
+        try {
+            const date = new Date();
+            date.setHours(+3);
+            const formattedDate = date.toISOString().split('T')[0];
+
+            const response = await databases.listDocuments(
+                databaseId,
+                appointmentsCollectionId,
+                [sdk.Query.greaterThanEqual('date', formattedDate)]
+            );
+            if (response.documents.length === 0) {
+                sendOptionsAdmin(chatId, 'Записи відсутні.', [
+                    ['Головне меню'],
+                ]);
+            } else if (response.documents.length > 0) {
+                let messge = `Всього записів: ${response.total}\n\n`;
+                let appointmentList = response.documents.map((document) => {
+                    return `Ім'я: ${document.name}
+Телеграм / Телефон: ${document.phone}
+Дата: ${document.date}
+Час: ${document.time}
+Послуги: ${document.selectedServices.join(', ')}`;
+                });
+                messge += appointmentList.join('\n\n');
+                sendOptionsAdmin(chatId, messge, [
+                    ['Скасувати запис', 'Головне меню'],
+                ]);
+            }
+        } catch (error) {
+            console.error('Помилка при отриманні записів:', error);
+            sendOptionsAdmin(
+                chatId,
+                'Сталась помилка при отриманні записів. Спробуй пізніше.',
+                [['Головне меню', 'Записи']]
+            );
+        }
+    } else if (text === '/cancel' || text === 'Скасувати запис') {
+        try {
+            const response = await databases.listDocuments(
+                databaseId,
+                appointmentsCollectionId,
+                [
+                    sdk.Query.greaterThanEqual(
+                        'date',
+                        new Date().toISOString().split('T')[0]
+                    ),
+                ]
+            );
+            if (response.documents.length === 0) {
+                sendOptionsAdmin(chatId, 'Записи відсутні.', [
+                    ['Головне меню'],
+                ]);
+            } else {
+                response.documents.map((document) => {
+                    botAdmin.sendMessage(
+                        chatId,
+                        `Запис:
+Ім'я: ${document.name}
+Телеграм / Телефон: ${document.phone}
+Дата: ${document.date}
+Час: ${document.time}
+Послуги: ${document.selectedServices.join(', ')}`,
+                        {
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [
+                                        {
+                                            text: 'Скасувати',
+                                            callback_data: `cancel_${document.$id}`,
+                                        },
+                                    ],
+                                ],
+                            },
+                        }
+                    );
+                });
+            }
+        } catch (error) {
+            console.error('Помилка при отриманні записів:', error);
+            sendOptionsAdmin(
+                chatId,
+                'Сталась помилка при отриманні записів. Спробуй пізніше.',
+                [['Головне меню', 'Скасувати запис']]
+            );
+        }
+    } else if (text === '/disabled_dates' || text === 'Заблоковані дати') {
+        try {
+            const response = await databases.listDocuments(
+                databaseId,
+                disabledDatesCollectionId,
+                [
+                    sdk.Query.greaterThanEqual(
+                        'date',
+                        new Date().toISOString().split('T')[0]
+                    ),
+                ]
+            );
+            if (response.documents.length === 0) {
+                sendOptionsAdmin(chatId, 'Заблоковані дати відсутні.', [
+                    ['Головне меню'],
+                ]);
+            } else {
+                sendOptionsAdmin(
+                    chatId,
+                    `Заблоковані дати:
+                    
+${response.documents.map((date) => date.date).join('\n\n')}`,
+                    [['Додати заблоковану дату', 'Головне меню']]
+                );
+            }
+        } catch (error) {
+            console.error('Помилка при отриманні заблокованих дат:', error);
+            sendOptionsAdmin(
+                chatId,
+                'Помилка при отриманні заблокованих дат. Спробуй ще раз.',
+                [['Головне меню', 'Заблоковані дати']]
+            );
+        }
+    } else if (
+        text === '/add_disabled_date' ||
+        text === 'Додати заблоковану дату'
+    ) {
+        calendarAdmin.startNavCalendar(msg);
+    }
+});
+
+botAdmin.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+    const data = query.data;
+
+    if (data.startsWith('cancel_')) {
+        const appointmentId = data.split('_')[1];
+        try {
+            databases
+                .deleteDocument(
+                    databaseId,
+                    appointmentsCollectionId,
+                    appointmentId
+                )
+                .then(() => {
+                    botAdmin.editMessageReplyMarkup(
+                        { inline_keyboard: [] },
+                        {
+                            chat_id: chatId,
+                            message_id: query.message.message_id,
+                        }
+                    );
+                    sendOptionsAdmin(
+                        chatId,
+                        'Запис скасовано. Якщо хочеш скасувати ще запис, натисни кнопку нижче.',
+                        [['Скасувати запис'], ['Головне меню']]
+                    );
+                });
+            botAdmin.answerCallbackQuery(query.id);
+        } catch (error) {
+            console.error('Помилка при скасуванні запису:', error);
+            sendOptionsAdmin(
+                chatId,
+                'Помилка при скасуванні запису. Спробуй ще раз.',
+                [['Головне меню', 'Скасувати запис']]
+            );
+        }
+    } else if (data.startsWith('n_20')) {
+    }
+});
